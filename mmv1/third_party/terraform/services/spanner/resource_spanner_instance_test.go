@@ -15,7 +15,7 @@ import (
 func TestAccSpannerInstance_basic(t *testing.T) {
 	t.Parallel()
 
-	idName := fmt.Sprintf("spanner-test-%s", acctest.RandString(t, 10))
+	idName := fmt.Sprintf("tf-test-%s", acctest.RandString(t, 10))
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
@@ -39,7 +39,7 @@ func TestAccSpannerInstance_basic(t *testing.T) {
 func TestAccSpannerInstance_noNodeCountSpecified(t *testing.T) {
 	t.Parallel()
 
-	idName := fmt.Sprintf("spanner-test-%s", acctest.RandString(t, 10))
+	idName := fmt.Sprintf("tf-test-%s", acctest.RandString(t, 10))
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
@@ -54,11 +54,12 @@ func TestAccSpannerInstance_noNodeCountSpecified(t *testing.T) {
 }
 
 func TestAccSpannerInstance_basicWithAutogenName(t *testing.T) {
-	// Randomness
+	// Since we're testing the randomly generated instance name here, still force VCR skipping here. Don't use this for other
+	// examples where not necessary.
 	acctest.SkipIfVcr(t)
 	t.Parallel()
 
-	displayName := fmt.Sprintf("spanner-test-%s-dname", acctest.RandString(t, 10))
+	displayName := fmt.Sprintf("tf-test-%s-dname", acctest.RandString(t, 10))
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
@@ -80,10 +81,9 @@ func TestAccSpannerInstance_basicWithAutogenName(t *testing.T) {
 }
 
 func TestAccSpannerInstance_update(t *testing.T) {
-	// Randomness
-	acctest.SkipIfVcr(t)
 	t.Parallel()
 
+	instanceName := fmt.Sprintf("tf-test-%s", acctest.RandString(t, 10))
 	dName1 := fmt.Sprintf("spanner-dname1-%s", acctest.RandString(t, 10))
 	dName2 := fmt.Sprintf("spanner-dname2-%s", acctest.RandString(t, 10))
 	acctest.VcrTest(t, resource.TestCase{
@@ -92,7 +92,7 @@ func TestAccSpannerInstance_update(t *testing.T) {
 		CheckDestroy:             testAccCheckSpannerInstanceDestroyProducer(t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSpannerInstance_update(dName1, 1, false),
+				Config: testAccSpannerInstance_update(instanceName, dName1, 1, false),
 			},
 			{
 				ResourceName:            "google_spanner_instance.updater",
@@ -101,7 +101,7 @@ func TestAccSpannerInstance_update(t *testing.T) {
 				ImportStateVerifyIgnore: []string{"labels", "terraform_labels"},
 			},
 			{
-				Config: testAccSpannerInstance_update(dName2, 2, true),
+				Config: testAccSpannerInstance_update(instanceName, dName2, 2, true),
 			},
 			{
 				ResourceName:            "google_spanner_instance.updater",
@@ -114,11 +114,9 @@ func TestAccSpannerInstance_update(t *testing.T) {
 }
 
 func TestAccSpannerInstance_virtualUpdate(t *testing.T) {
-	// Randomness
-	acctest.SkipIfVcr(t)
 	t.Parallel()
 
-	dName := fmt.Sprintf("spanner-dname1-%s", acctest.RandString(t, 10))
+	dName := fmt.Sprintf("tf-test-%s", acctest.RandString(t, 10))
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
@@ -145,7 +143,7 @@ func TestAccSpannerInstance_virtualUpdate(t *testing.T) {
 func TestAccSpannerInstance_basicWithAutoscalingUsingProcessingUnitConfig(t *testing.T) {
 	t.Parallel()
 
-	displayName := fmt.Sprintf("spanner-test-%s-dname", acctest.RandString(t, 10))
+	displayName := fmt.Sprintf("tf-test-%s-dname", acctest.RandString(t, 10))
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
@@ -230,7 +228,7 @@ func TestAccSpannerInstance_basicWithAutoscalingUsingProcessingUnitConfigUpdate(
 func TestAccSpannerInstance_basicWithAutoscalingUsingNodeConfig(t *testing.T) {
 	t.Parallel()
 
-	displayName := fmt.Sprintf("spanner-test-%s-dname", acctest.RandString(t, 10))
+	displayName := fmt.Sprintf("tf-test-%s-dname", acctest.RandString(t, 10))
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
@@ -391,15 +389,17 @@ resource "google_spanner_instance" "basic" {
 `, name)
 }
 
-func testAccSpannerInstance_update(name string, nodes int, addLabel bool) string {
+func testAccSpannerInstance_update(instanceName, displayName string, nodes int, addLabel bool) string {
 	extraLabel := ""
 	if addLabel {
 		extraLabel = "\"key2\" = \"value2\""
 	}
 	return fmt.Sprintf(`
 resource "google_spanner_instance" "updater" {
-  config       = "regional-us-central1"
+  name         = "%s"
   display_name = "%s"
+
+  config       = "regional-us-central1"
   num_nodes    = %d
 
   labels = {
@@ -407,15 +407,16 @@ resource "google_spanner_instance" "updater" {
     %s
   }
 }
-`, name, nodes, extraLabel)
+`, instanceName, displayName, nodes, extraLabel)
 }
 
 func testAccSpannerInstance_virtualUpdate(name, virtual string) string {
 	return fmt.Sprintf(`
 resource "google_spanner_instance" "basic" {
   name         = "%s"
-  config       = "regional-us-central1"
   display_name = "%s"
+
+  config           = "regional-us-central1"
   processing_units = 100
   force_destroy    = "%s"
 }
